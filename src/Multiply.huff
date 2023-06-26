@@ -1,4 +1,3 @@
-
 /** 
  *  MULTIPLY HUFF EXERCISE
  *
@@ -14,4 +13,38 @@
 
 #define macro MAIN() = takes(0) returns(0) {
 
+    // Get the fn sig from calldata
+    0x00 calldataload 0xE0 shr   // [fn_sig (calldata @ 0x00 >> 0xE0)]
+
+    // Check if fn sig mathes `multiply`
+    __FUNC_SIG(multiply) eq mult jumpi  // []
+
+    // Revert, unknown selector!
+    0x00 0x00 revert
+
+    mult:
+        0x04 calldataload         // [u1]
+        0x24 calldataload         // [u2, u1]
+        dup2                      // [u1, u2, u1]
+        dup2                      // [u2, u1, u2, u1]
+        mul                       // [p, u2, u1]
+
+        // if product == 0 goto exit
+        dup1 iszero exit jumpi    // [p, u2, u1]
+
+        // Check for overflow
+        dup1 swap2                // [u2, p, p, u1]
+
+        // if u2 > product goto overflow
+        gt overflow jumpi         // [p, u1]
+        // if u1 > product goto overflow
+        dup1 swap2                // [u1, p, p]
+        gt overflow jumpi         // [p]
+
+    exit:                         // [p]
+        0x00 mstore               // []
+        0x32 0x00 return          // []
+
+    overflow:                     // [p, ?]
+        0x00 0x00 revert
 }
