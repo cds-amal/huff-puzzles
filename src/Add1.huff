@@ -2,9 +2,11 @@
 /** 
  *  ADD HUFF EXERCISE
  *
- *  When writing solidity, we most times have to perform some mathematical operations like addition etc
+ *  When writing solidity, we most times have to perform some mathematical
+ *  operations like addition etc
  *  
- *  The task is to write within the `MAIN` macro below, a function that takes in a uint256, adds 1 to it and returns the new value
+ *  The task is to write within the `MAIN` macro below, a function that takes
+ *  in a uint256, adds 1 to it and returns the new value
  *
  *  NOTICE: The contract should revert when an unrecognized function is called
  */
@@ -13,5 +15,17 @@
 
 
 #define macro MAIN() = takes(0) returns(0) {
+    // Get the fn sig from calldata
+    0x00 calldataload 0xE0 shr   // [fn_sig (calldata @ 0x00 >> 0xE0)]
+    __FUNC_SIG(add1)          // [sel(add1), fn_sig]
+    eq add_1 jumpi            // []
 
+    // Revert if wrong fn
+    0x00 0x00 revert
+
+    add_1:
+        0x04 calldataload     // [uint]
+        0x01 add              // [uint + 1]
+        0x00 mstore           // []
+        0x32 0x00 return      // []
 }
