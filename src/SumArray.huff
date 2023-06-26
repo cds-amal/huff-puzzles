@@ -1,9 +1,10 @@
-
 /** 
  *  SUM_ARRAY HUFF EXERCISE
  *
  *  
- *  The task is to write within the `MAIN` macro below, write a functionality that takes an array of uint256 as an argument and returns the sum of all the numbers
+ *  The task is to write within the `MAIN` macro below, write a functionality
+ *  that takes an array of uint256 as an argument and returns the sum of all
+ *  the numbers
  *
  *  NOTICE: The contract should revert when an unrecognized function is called
  */
@@ -13,4 +14,67 @@
 
 #define macro MAIN() = takes(0) returns(0) {
 
+    // Get the fn sig from calldata
+    0x00 calldataload 0xE0 shr   // [fn_sig (calldata @ 0x00 >> 0xE0)]
+
+    // Check if fn sig mathes `sumArray`
+    __FUNC_SIG(sumArray)     // [sel(sumArray), fn_sig]
+    eq start jumpi      // []
+
+    // Revert if wrong fn
+    0x00 0x00 revert
+
+    /* Memory layout
+    0x00: selector
+    0x04: 0x24 (start of dynamic type)
+                        |
+    0x24: len <---------/
+    0x44: u_1
+    0x64  u_2
+    ...
+    32 * (len-1) + 4: u_n
+    */
+
+    start:
+        // Load data portion of calldata into memory
+        0x04 calldatasize sub  // [cdsize-4]
+        0x24 0x00 calldatacopy // []
+
+        0x00                    // [sum=0]
+        0x00 mload              // [dx, sum]
+
+    while: // dx != 0 
+        dup1 iszero done jumpi  // [dx, sum]
+
+        // Load next item
+        dup1 0x20 mul           // [32*dx, dx, sum]
+        swap1                   // [dx, 32*dx, sum]
+
+        0x01 swap1 sub          // [--dx, 32*dx, sum]
+        swap1 mload             // [n, dx, sum]
+
+        dup3 add swap2          // [n, dx, sum+n]
+        pop                     // [dx, sum+n]
+        while jump
+
+    done:                       // [dx, sum]
+        pop                     // [sum]
+        0x00 mstore             // []
+        0x20 0x00 return        // []
 }
+/*
+calldata: 0x1e2aea0600000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001
+
+Selector: 0x1e2aea06 encodes sumArray(uint256[]) which is a dynamic array of
+uint256
+
+0000000000000000000000000000000000000000000000000000000000000020 // 0x000 (000)  goto 0x20 to start decoding uint256[]
+0000000000000000000000000000000000000000000000000000000000000003 // 0x020 (032): length is 3
+0000000000000000000000000000000000000000000000000000000000000003 // 0x040 (064): item 1
+0000000000000000000000000000000000000000000000000000000000000002 // 0x060 (096): item 2
+0000000000000000000000000000000000000000000000000000000000000001 // 0x080 (128): item 3
+
+Step through in evm.codes:
+https://www.evm.codes/playground?fork=shanghai&unit=Wei&callData=0x1e2aea0600000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001&codeType=Bytecode&code='~35ze01c631e2aea0614y1557~~fd5bz043z3z24~37xbx18015y3d5780z2w290z019w3x25101y21565b50x2z20~f3'~zwz60y61wx~5w00%01wxyz~_
+*/
+
