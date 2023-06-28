@@ -1,8 +1,8 @@
-
 /** 
  *  MAX_OF_ARRAY HUFF EXERCISE
  *  
- *  In this task, Given an abi encoded array of uint256, return its maximum value. Revert if the array is empty.
+ *  In this task, Given an abi encoded array of uint256, return its maximum
+ *  value. Revert if the array is empty.
  *
  *  NOTICE: The contract should revert when an unrecognized function is called
  */
@@ -10,5 +10,78 @@
 #define function maxOfArray(uint256[]) payable returns(uint256)
 
 #define macro MAIN() = takes(0) returns(0) {
+
+/* 
+Calldata layout:
+        0x00: selector
+        0x04: 0x24 (start of dynamic type)
+                            |
+        0x24: len <---------/
+        0x44: u_1
+        0x64  u_2
+        ...
+        32 * (len-1) + 4: u_n
+
+Example layout of dynamic array once loaded into memory:
+        00: 3   20
+        20: 3   1 * 20
+        40: 2   2 * 20
+        60: 1   3 * 20
+*/
    
+    // Get the fn sig from calldata
+    0x00 calldataload 0xE0 shr   // [fn_sig (calldata @ 0x00 >> 0xE0)]
+
+    // Check if fn sig mathes `maxOfArray`
+    __FUNC_SIG(maxOfArray)       // [sel(maxOfArray), fn_sig]
+    eq read_input jumpi          // []
+
+    bail:
+      0x00 0x00 revert
+
+    read_input:
+        // Load the dataportion of calldata into memory
+        0x04 calldatasize sub    // [cdsize-4]
+        0x24 0x00 calldatacopy   // []
+
+        // Load array length and check for empty
+        0x00 mload dup1      // [dx, dx]
+        iszero bail jumpi    // [dx]
+
+        // max = last element
+        dup1                 // [dx, dx]
+        0x20 mul             // [32*dx, dx]
+        mload                // [max, dx]
+        swap1                // [dx, max]
+     
+    do: 
+        0x01 swap1 sub       // [--dx, max]
+
+        // Read next element 
+        dup1 0x20 mul        // [20*dx, dx, max]
+        mload                // [n, dx, max]
+
+        // Test against max
+        dup1                 // [n, n, dx, max]
+        dup4                 // [max, n, n, dx, max]
+
+        // Branch to set new max
+        lt swapmax jumpi     // [n, dx, max]
+
+        // Otherwise, discard current element
+        pop                  // [dx, max]
+
+    while:                   // [dx, max]
+        // index != 0
+        dup1                 // [dx, dx, max]
+        iszero done jumpi    // [dx, max]
+        do jump
+
+    swapmax:                 // [n, dx, max]
+        swap2 pop            // [dx, max=n]
+        while jump
+
+    done:                    // [dx=0, max]
+        mstore               // []
+        0x20 0x00 return     // []
 }
