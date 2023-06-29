@@ -1,12 +1,44 @@
 /** 
  *  DONATIONS HUFF EXERCISE
  *  
- *  The task is to Implement solidity's "receive" functionality which allows sending ether to a smart contract without any calldata
- *  also have a getter function that returns how much an address has donated. Addresses can donate several times
+ *  The task is to Implement solidity's "receive" functionality which allows
+ *  sending ether to a smart contract without any calldata also have a getter
+ *  function that returns how much an address has donated. Addresses can donate
+ *  several times
  */
 
 #define function donated(address) payable returns(uint256)
+#define constant BALANCE = FREE_STORAGE_POINTER()
+
+/// @notice generate storage slot for a balance[address] hashmap.
+#define macro GET_ADDRESS_SLOT(ptr) = takes(0) returns (1) {
+    // Input stack: []
+    // Load the data into memory and hash it, while preserving the memory location.
+    caller              // [caller]
+    <ptr>               // [ptr, caller]
+    mstore              // []
+
+    // Hash the data, generating a key.
+    0x20                // [32]
+    <ptr>               // [ptr, 32]
+    sha3                // [slot]
+}
 
 #define macro MAIN() = takes(0) returns(0) {
-    
+    0x00 calldataload 0xE0 shr      // [fn_sig (calldata @ 0x00 >> 0xE0)]
+    __FUNC_SIG(donated)             // [sel(donated), fn_sig]
+    eq report jumpi                 // []
+
+    // accept funds
+    GET_ADDRESS_SLOT(BALANCE)       // [slot]
+    dup1 sload                      // [current_value, slot]
+    callvalue add                   // [new_value, slot]
+    swap1 sstore                    // []
+    0x00 0x00 return                // []
+
+    report:
+        GET_ADDRESS_SLOT(BALANCE)   // [slot]
+        sload                       // [balance]
+        0x00 mstore                 // []
+        0x20 0x00 return
 }
