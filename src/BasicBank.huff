@@ -1,9 +1,10 @@
 /** 
  *  BASIC_BANK HUFF EXERCISE
  *  
- *  The task is to create a basic bank with huff
- * functionalities include
- *      - depositing tokens via similar to how solidity's `receive` function works
+ *  The task is to create a basic bank with huff.
+ *  Functionalities include:
+ *      - depositing tokens via similar to how solidity's `receive` function
+ *        works
  *      - withdrawing tokens
  *      - keeping track of and viewing balance
  */
@@ -11,6 +12,93 @@
 #define function balanceOf(address) payable returns(uint256)
 #define function withdraw(uint256) payable returns()
 
-#define macro MAIN() = takes(0) returns(0) {
+#define constant DEPOSIT = FREE_STORAGE_POINTER()
 
+/// @notice generate storage slot for a balance[address] hashmap.
+#define macro GET_ADDRESS_SLOT(ptr) = takes(0) returns (1) {
+    // Input stack: [caller]
+    // Load the data into memory and hash it, while preserving the memory location.
+    <ptr>               // [ptr, caller]
+    mstore              // []
+
+    // Hash the data, generating a key.
+    0x20                // [32]
+    <ptr>               // [ptr, 32]
+    sha3                // [slot]
 }
+
+#define macro MAIN() = takes(0) returns(0) {
+    // Get the fn sig from calldata
+    0x00 calldataload 0xE0 shr   // [fnSig]
+    dup1 __FUNC_SIG(balanceOf)   // [sel(balanceOf), fnSig]
+    eq balance_of jumpi          // [fnSig]
+
+    __FUNC_SIG(withdraw)         // [sel(withdraw), fnSig]
+    eq withdraw jumpi            // []
+
+    // fallback function is deposit
+    caller                          // [caller]
+    GET_ADDRESS_SLOT(DEPOSIT)       // [slot]
+    dup1 sload                      // [current_value, slot]
+    callvalue add                   // [new_value, slot]
+    swap1 sstore                    // []
+    0x00 0x00 return                // []
+
+    balance_of:
+        0x04 calldataload           // [address]
+        GET_ADDRESS_SLOT(DEPOSIT)   // [slot]
+        sload                       // [balance]
+        0x00 mstore                 // []
+        0x20 0x00 return
+
+    withdraw:
+        caller                      // [caller]
+        GET_ADDRESS_SLOT(DEPOSIT)   // [slot]
+        dup1                        // [slot, slot]
+        0x04 calldataload           // [amount, slot, slot]
+        dup1                        // [amount, amount, slot, slot]
+        swap2                       // [slot, amount, amount, slot]
+        sload                       // [balance, amount, amount, slot]
+        dup1 iszero halt jumpi      // [balance, amount, amount, slot]
+        swap1                       // [amount , balance, amount, slot]
+        dup2                        // [balance, amount, balance, amount, slot]
+
+        // balance >= amount
+        gt do_transfer jumpi        // [balance, amount, slot]
+        dup1 dup1
+        eq do_transfer jumpi
+
+    halt:
+        0x00 0x00 revert            // NOT ENOUGH FUNDS
+
+    do_transfer:
+        // Reduce deposit  // [balance, amount, slot]
+        dup2               // [amount, balance, amount, slot]
+        swap1              // [balance, amount, amount, slot]
+        // @invariant: balance >= amount
+        sub                // [reducedBalance, amount, slot]
+
+        // Update deposit in storage
+        dup3               // [slot, reducedBalance, amount, slot]
+        sstore             // [amount, slot]
+        swap1 pop          // [amount]
+
+        // Transfer amount to caller
+        0x00               // [0, amount]
+        dup1               // [0, 0, amount]
+        dup1               // [0, 0, 0, amount]
+        dup1               // [0, 0, 0, 0, amount]
+        swap4              // [amount, 0, 0, 0, 0]
+        caller             // [address, amount, 0 ,0, 0, 0]
+        0x00               // [0, address, amount, 0, 0, 0, 0] 
+        call               // [] (gas, address, amount, argOffset, argSize, retOffset, retSize)
+}
+
+/*
+0x0000000000000000000000000000000000000000000000000000000000000000
+balanceOf: 
+0x70a08231000000000000000000000000be862ad9abfe6f22bcb087716c7d89a26051f74c
+
+Withdraw
+0x2e1a7d4d0000000000000000000000000000000000000000000000000000000000000003
+*/
