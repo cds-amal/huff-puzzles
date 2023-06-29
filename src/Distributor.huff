@@ -1,11 +1,12 @@
- 
+#include "Console.huff" 
+
 /** 
  *  DISTRIBUTE HUFF EXERCISE
  *  
- *  The task is to enable this contract, when called with function `distribute(address[])` to
- *  distribute the value sent with the call to each address in the address array as evenly.
- *  Revert if array length is 0
- *  Assume that array length would always be less than or equal to msg.value
+ *  The task is to enable this contract, when called with function
+ *  `distribute(address[])` to distribute the value sent with the call to each
+ *  address in the address array as evenly. Revert if array length is 0 Assume
+ *  that array length would always be less than or equal to msg.value
  *
  *  NOTICE: The contract should revert when an unrecognized function is called
  */
@@ -13,6 +14,67 @@
  #define function distribute(address[]) payable returns()
 
 
+    /* Memory layout
+    0x00: selector
+    0x04: 0x24 (start of dynamic type)
+                        |
+    0x24: len <---------/
+    0x44: u_1
+    0x64  u_2
+    ...
+    32 * (len-1) + 4: u_n
+    */
+
  #define macro MAIN() = takes(0) returns(0) {
-   
+    // Get the fn sig from calldata
+    0x00 calldataload 0xE0 shr   // [fnSig]
+    dup1 __FUNC_SIG(distribute)  // [sel(distribute), fnSig]
+    eq share jumpi               // [fnSig]
+
+    halt:
+        0x00 0x00 revert
+
+    share:
+        // Load data portion of calldata into memory
+        0x04 calldatasize sub   // [cdsize-4]
+        0x24 0x00 calldatacopy  // [value]
+        0x00 mload              // [dx]
+
+        // halt if dx == 0
+        dup1 iszero halt jumpi  // [dx]
+
+        dup1                    // [dx, dx]
+        callvalue               // [value, dx, dx]
+        div                     // [share, dx]
+        swap1                   // [dx, share]
+
+    while: // dx != 0 
+        dup1 iszero done jumpi  // [dx, share]
+
+        // Load next recipient
+        dup1 0x20 mul           // [&address, dx, share]
+        swap1                   // [dx, &address, share]
+
+        0x01 swap1 sub          // [dx-1, &address, share]
+        swap1 mload             // [address, dx, share]
+
+        // transfer
+        0x00               // [0, address, dx, share]
+        dup1               // [0, 0, address, dx, share]
+        dup1               // [0, 0, 0, address, dx, share]
+        dup1               // [0, 0, 0, 0, address, dx, share]
+        dup7               // [share, 0, 0, 0, 0, address, dx, share]
+        dup6               // [address, share, 0, 0, 0, 0, address, dx, share]
+        gas                // [gas, address, share, 0, 0, 0, 0, address, dx, share]
+        call               // [address, dx, share] (gas, address, amount, argOffset, argSize, retOffset, retSize)
+
+        /* LINE_BREAK(0xa0, 0xc0) */
+        /* LOG_STACK_4(0xa0) */
+
+        iszero halt jumpi  // [address, dx, share] (gas, address, amount, argOffset, argSize, retOffset, retSize)
+        pop                // [dx, share]
+        while jump
+
+    done:                  // [...]
+        0x00 0x00 return   // []
  }
