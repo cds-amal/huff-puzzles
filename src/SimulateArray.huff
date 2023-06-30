@@ -1,8 +1,8 @@
-
 /** 
  *  SUM_ARRAY HUFF EXERCISE
  *
- * In this puzzle, the task is to simulate an array in Huff using the "exact" storage pattern as solidity. Expected functions can; 
+ * In this puzzle, the task is to simulate an array in Huff using the "exact"
+ * storage pattern as solidity. Expected functions can; 
  *      - Push numbers onto a array, 
  *      - Pop the last index from the array,
  *      - View what's stored at an index, 
@@ -15,15 +15,123 @@
  *  NOTICE: The contract should revert when an unrecognized function is called
  */
 
- #define function pushh(uint256 num) payable returns()
- #define function popp() payable returns()
- #define function read(uint256 index) payable returns(uint256)
- #define function length() payable returns(uint256)
- #define function write(uint256 index, uint256 num) payable returns()
+#define function pushh(uint256 num) payable returns()
+#define function popp() payable returns()
+#define function read(uint256 index) payable returns(uint256)
+#define function length() payable returns(uint256)
+#define function write(uint256 index, uint256 num) payable returns()
 
- #define error OutOfBounds()
- #define error ZeroArray()
+#define error OutOfBounds()
+#define error ZeroArray()
 
- #define macro MAIN() = takes(0) returns(0) {
-    
- }
+#define constant SIZE = FREE_STORAGE_POINTER()
+
+#define macro MAIN() = takes(0) returns(0) {
+    // Get the fn sig from calldata
+    0x00 calldataload 0xE0 shr   // [fnSig]
+    dup1 __FUNC_SIG(pushh) eq fn_pushh jumpi   // [fnSig]
+    dup1 __FUNC_SIG(popp) eq fn_popp jumpi     // [fnSig]
+    dup1 __FUNC_SIG(read) eq fn_read jumpi     // [fnSig]
+    dup1 __FUNC_SIG(length) eq fn_length jumpi // [fnSig]
+    __FUNC_SIG(write) eq fn_write jumpi   // [fnSig]
+
+    halt:
+        0x00 0x00 revert
+
+    fn_pushh:
+        // update length
+        [SIZE] sload       // [len]
+        0x01 add dup1      // [len+1, len+1]
+        [SIZE] sstore      // [len+1]
+
+        // add new item
+        0x04 calldataload  // [n, len+1]
+        swap1 [SIZE] add   // [&(len+1), n]
+        sstore             // []
+        0x00 0x00 return   // []
+
+    fn_popp:
+        [SIZE] sload       // [len]
+        // check length > 0
+        dup1 iszero zero_array jumpi  // [len]
+
+    popp:                  // [len]
+        dup1               // [len, len]
+        // update length
+        0x01 add dup1      // [&lastN, &lastN, len]
+        sload swap1        // [&lastN, lastN, len]
+        // zero out last item
+        0x00 swap1         // [&lastN, 0, lastN, len]
+        sstore             // [lastN, len]
+
+        swap1 0x01 swap1 sub    // [len-1, lastN] 
+        [SIZE] sstore      // [lastN]
+        0x00 mstore        // []
+        0x20 0x00 return   // []
+
+   zero_array:
+        __ERROR(ZeroArray)       // [error_selector, message_length, message]
+        0x00 mstore              // [message_length, message]
+        0x04 0x00 revert
+
+    fn_read:
+        [SIZE] sload       // [len]
+        dup1               // [len, len] 
+
+        // len == 0
+        iszero oob jumpi   // [len]
+
+        0x04 calldataload  // [dx, len]
+        dup1               // [dx, dx, len]
+        dup3               // [len, dx, dx, len]
+        // len > dx is InBounds
+        gt read jumpi      // [dx, len]
+
+    oob:
+        __ERROR(OutOfBounds)     // [error_selector, message_length, message]
+        0x00 mstore              // [message_length, message]
+        0x04 0x00 revert
+
+    read:                   // [dx, len]
+        0x01 add sload      // [dx+1, len] // since SIZE is 0x00
+        0x00 mstore         // []
+        0x20 0x00 return    // []
+
+    fn_length:
+        [SIZE] sload        // [len]
+        0x00 mstore         // []
+        0x20 0x00 return    // []
+
+    fn_write:
+        0x24 calldataload   // [value]
+        0x04 calldataload   // [dx, value]
+        [SIZE] sload        // [len, dx, value]
+
+        // dx >= len is OutOfBounds
+        dup2                // [dx, len, dx, value]
+        lt write jumpi      // [dx, value]
+
+        // Goto out of bounds
+        oob jump
+
+    write:
+        0x01 add            // [slot, value]
+        sstore              // []
+        stop
+}
+
+/*
+pushh:
+0x5edfe85d0000000000000000000000000000000000000000000000000000000000000015
+0x5edfe85d000000000000000000000000000000000000000000000000000000000000000b
+
+read:
+0xed2e5a970000000000000000000000000000000000000000000000000000000000000000
+
+popp:
+0x6a57dbc7
+
+
+write:
+0x9c0e3f7a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100
+/*
