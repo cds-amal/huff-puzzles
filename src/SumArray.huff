@@ -22,7 +22,7 @@
     eq start jumpi      // []
 
     // Revert if wrong fn
-    0x00 0x00 revert
+    push0 push0 revert
 
     /* Memory layout
     0x00: selector
@@ -37,11 +37,11 @@
 
     start:
         // Load data portion of calldata into memory
-        0x04 calldatasize sub  // [cdsize-4]
-        0x24 0x00 calldatacopy // []
+        0x04 calldatasize sub    // [cdsize-4]
+        0x24 push0 calldatacopy  // []
 
-        0x00                    // [sum=0]
-        0x00 mload              // [dx, sum]
+        push0                    // [sum=0]
+        push0 mload              // [dx, sum]
 
     while: // dx != 0 
         dup1 iszero done jumpi  // [dx, sum]
@@ -59,8 +59,8 @@
 
     done:                       // [dx, sum]
         pop                     // [sum]
-        0x00 mstore             // []
-        0x20 0x00 return        // []
+        push0 mstore            // []
+        0x20 push0 return       // []
 }
 /*
 calldata: 0x1e2aea0600000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001

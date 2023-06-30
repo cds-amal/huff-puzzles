@@ -18,13 +18,13 @@
 
     0x00 0x00 revert             // [] Revert if unknown fn
     send:
-        0x00                     // [0]
-        dup1                     // [0, 0]
-        dup1                     // [0, 0, 0]
-        dup1                     // [0, 0, 0, 0]
+        push0                    // [0]
+        push0                    // [0, 0]
+        push0                    // [0, 0, 0]
+        push0                    // [0, 0, 0, 0]
 
         callvalue                // [value, 0, 0, 0, 0]
         0x04 calldataload        // [address, value, 0 ,0, 0, 0]
-        0x00                     // [address, value, 0, 0, 0, 0] 
+        push0                    // [0, address, value, 0, 0, 0, 0] 
         call                     // [] (gas, address, value, argOffset, argSize, retOffset, retSize)
  }

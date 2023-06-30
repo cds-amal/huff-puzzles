@@ -30,22 +30,22 @@ Example layout of dynamic array once loaded into memory:
 */
    
     // Get the fn sig from calldata
-    0x00 calldataload 0xE0 shr   // [fn_sig (calldata @ 0x00 >> 0xE0)]
+    push0 calldataload 0xE0 shr  // [call_sig]
 
     // Check if fn sig mathes `maxOfArray`
     __FUNC_SIG(maxOfArray)       // [sel(maxOfArray), fn_sig]
     eq read_input jumpi          // []
 
     bail:
-      0x00 0x00 revert
+      push0 push0 revert
 
     read_input:
         // Load the dataportion of calldata into memory
         0x04 calldatasize sub    // [cdsize-4]
-        0x24 0x00 calldatacopy   // []
+        0x24 push0 calldatacopy  // []
 
         // Load array length and check for empty
-        0x00 mload dup1      // [dx, dx]
+        push0 mload dup1     // [dx, dx]
         iszero bail jumpi    // [dx]
 
         // max = last element
@@ -83,5 +83,5 @@ Example layout of dynamic array once loaded into memory:
 
     done:                    // [dx=0, max]
         mstore               // []
-        0x20 0x00 return     // []
+        0x20 push0 return    // []
 }

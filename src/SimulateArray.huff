@@ -28,15 +28,15 @@
 
 #define macro MAIN() = takes(0) returns(0) {
     // Get the fn sig from calldata
-    0x00 calldataload 0xE0 shr   // [fnSig]
-    dup1 __FUNC_SIG(pushh) eq fn_pushh jumpi   // [fnSig]
-    dup1 __FUNC_SIG(popp) eq fn_popp jumpi     // [fnSig]
-    dup1 __FUNC_SIG(read) eq fn_read jumpi     // [fnSig]
-    dup1 __FUNC_SIG(length) eq fn_length jumpi // [fnSig]
-    __FUNC_SIG(write) eq fn_write jumpi   // [fnSig]
+    push0 calldataload 0xE0 shr   // [callSig]
+    dup1 __FUNC_SIG(pushh) eq fn_pushh jumpi   // [callSig]
+    dup1 __FUNC_SIG(popp) eq fn_popp jumpi     // [callSig]
+    dup1 __FUNC_SIG(read) eq fn_read jumpi     // [callSig]
+    dup1 __FUNC_SIG(length) eq fn_length jumpi // [callSig]
+    __FUNC_SIG(write) eq fn_write jumpi        // [callSig]
 
     halt:
-        0x00 0x00 revert
+        push0 push0 revert
 
     fn_pushh:
         // update length
@@ -48,7 +48,7 @@
         0x04 calldataload  // [n, len+1]
         swap1 [SIZE] add   // [&(len+1), n]
         sstore             // []
-        0x00 0x00 return   // []
+        push0 push0 return // []
 
     fn_popp:
         [SIZE] sload       // [len]
@@ -61,18 +61,18 @@
         0x01 add dup1      // [&lastN, &lastN, len]
         sload swap1        // [&lastN, lastN, len]
         // zero out last item
-        0x00 swap1         // [&lastN, 0, lastN, len]
+        push0 swap1        // [&lastN, 0, lastN, len]
         sstore             // [lastN, len]
 
         swap1 0x01 swap1 sub    // [len-1, lastN] 
         [SIZE] sstore      // [lastN]
-        0x00 mstore        // []
-        0x20 0x00 return   // []
+        push0 mstore       // []
+        0x20 push0 return  // []
 
    zero_array:
         __ERROR(ZeroArray)       // [error_selector, message_length, message]
-        0x00 mstore              // [message_length, message]
-        0x04 0x00 revert
+        push0 mstore             // [message_length, message]
+        0x04 push0 revert
 
     fn_read:
         [SIZE] sload       // [len]
@@ -89,18 +89,18 @@
 
     oob:
         __ERROR(OutOfBounds)     // [error_selector, message_length, message]
-        0x00 mstore              // [message_length, message]
-        0x04 0x00 revert
+        push0 mstore             // [message_length, message]
+        0x04 push0 revert
 
     read:                   // [dx, len]
         0x01 add sload      // [dx+1, len] // since SIZE is 0x00
-        0x00 mstore         // []
-        0x20 0x00 return    // []
+        push0 mstore        // []
+        0x20 push0 return   // []
 
     fn_length:
         [SIZE] sload        // [len]
-        0x00 mstore         // []
-        0x20 0x00 return    // []
+        push0 mstore        // []
+        0x20 push0 return   // []
 
     fn_write:
         0x24 calldataload   // [value]

@@ -29,10 +29,10 @@
     0x40: [HUFF]        // data
     */
 
-    0x20 0x00 mstore    // position of dyn data
+    0x20 push0 mstore   // position of dyn data
     [HUFF] 0x29 mstore  // data
 
-    /* 0x09 0x20 mstore   // length: place 1 word */
+    /* 0x09 0x20 mstore // length: place 1 word */
     0x09 0x3f mstore8   // length: place one byte 
-    0x60 0x00 revert
+    0x60 push0 revert
 }

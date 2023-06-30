@@ -11,8 +11,8 @@
 
 
  #define macro MAIN() = takes(0) returns(0) {
-    calldatasize 0x00 0x00 calldatacopy      // copy cd to mem offset 0, cdsize
-    calldatasize 0x00 sha3                   // keccak 0 mem offset, cdsize
-    0x00 mstore                              // store and ...
-    0x20 0x00 return                         // ... return hash
+    calldatasize push0 push0 calldatacopy     // copy cd to mem offset 0, cdsize
+    calldatasize push0 sha3                   // keccak 0 mem offset, cdsize
+    push0 mstore                              // store and ...
+    0x20 push0 return                         // ... return hash
  }

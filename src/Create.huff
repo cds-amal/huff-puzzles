@@ -33,16 +33,16 @@ initialization code: "600c600c600039600c6000f3620caffe60005260206000f3"
  #define macro MAIN() = takes(0) returns(0) {
 
     // Get the fn sig from calldata
-    0x00 calldataload 0xE0 shr     // [fn_sig (calldata @ 0x00 >> 0xE0)]
+    push0 calldataload 0xE0 shr    // [fn_sig (calldata @ push0 >> 0xE0)]
 
     __FUNC_SIG(makeContract)       // [sel(makeContract), fn_sig]
     eq deploy jumpi                // []
-    0x00 0x00 revert               // []
+    push0 push0 revert             // []
     deploy:
 
         __RIGHTPAD("600c600c600039600c6000f3620caffe60005260206000f3")
-        0x00 mstore                // []
-        0x20 0x00 callvalue create // [address]
-        0x00 mstore                // []
-        0x20 0x00 return           // []
+        push0 mstore                // []
+        0x20 push0 callvalue create // [address]
+        push0 mstore                // []
+        0x20 push0 return           // []
  }

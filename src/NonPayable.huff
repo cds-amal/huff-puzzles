@@ -17,8 +17,8 @@
 
     callvalue                // [callvalue]
     iszero iszero bail jumpi // []            
-    0x00 0x00 return
+    push0 push0 return
 
-    bail:
-        0x00 0x00 revert
+    bail:                    // []
+        push0 push0 revert
 }

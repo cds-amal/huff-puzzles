@@ -25,20 +25,19 @@
 }
 
 #define macro MAIN() = takes(0) returns(0) {
-    0x00 calldataload 0xE0 shr      // [fn_sig (calldata @ 0x00 >> 0xE0)]
-    __FUNC_SIG(donated)             // [sel(donated), fn_sig]
-    eq report jumpi                 // []
+    push0 calldataload 0xE0 shr          // [callsig]
+    __FUNC_SIG(donated) eq report jumpi  // []
 
     // accept funds
     GET_ADDRESS_SLOT(BALANCE)       // [slot]
     dup1 sload                      // [current_value, slot]
     callvalue add                   // [new_value, slot]
     swap1 sstore                    // []
-    0x00 0x00 return                // []
+    push0 push0 return              // []
 
     report:
         GET_ADDRESS_SLOT(BALANCE)   // [slot]
         sload                       // [balance]
-        0x00 mstore                 // []
-        0x20 0x00 return
+        push0 mstore                // []
+        0x20 push0 return
 }

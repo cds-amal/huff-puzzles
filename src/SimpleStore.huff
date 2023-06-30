@@ -20,22 +20,22 @@
 
 #define macro MAIN() = takes(0) returns(0) {
     // Get the fn sig from calldata
-    0x00 calldataload 0xE0 shr   // [fnSig]
-    dup1                         // [fnSig, fnSig]
+    push0 calldataload 0xE0 shr  // [callSig]
+    dup1                         // [callSig, callSig]
 
     __FUNC_SIG(store) eq store jumpi  // [fnSig]
     __FUNC_SIG(read) eq read jumpi    // []
 
     // Revert if wrong fn
-    0x00 0x00 revert
+    push0 push0 revert
 
     store:
         0x04 calldataload             // [u1]
-        0x00 sstore                   // []
-        0x00 0x00 return              // []
+        push0 sstore                  // []
+        push0 push0 return            // []
 
     read:
-        0x00 sload                    // [u1]
-        0x00 mstore                   // []
-        0x20 0x00 return              // []
+        push0 sload                   // [u1]
+        push0 mstore                  // []
+        0x20 push0 return             // []
 }

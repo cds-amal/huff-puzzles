@@ -29,7 +29,7 @@
 
 #define macro MAIN() = takes(0) returns(0) {
     // Get the fn sig from calldata
-    0x00 calldataload 0xE0 shr   // [fnSig]
+    push0 calldataload 0xE0 shr  // [fnSig]
     dup1 __FUNC_SIG(balanceOf)   // [sel(balanceOf), fnSig]
     eq balance_of jumpi          // [fnSig]
 
@@ -42,14 +42,14 @@
     dup1 sload                      // [current_value, slot]
     callvalue add                   // [new_value, slot]
     swap1 sstore                    // []
-    0x00 0x00 return                // []
+    push0 push0 return              // []
 
     balance_of:
         0x04 calldataload           // [address]
         GET_ADDRESS_SLOT(DEPOSIT)   // [slot]
         sload                       // [balance]
-        0x00 mstore                 // []
-        0x20 0x00 return
+        push0 mstore                // []
+        0x20 push0 return
 
     withdraw:
         caller                      // [caller]
@@ -69,7 +69,7 @@
         eq do_transfer jumpi
 
     halt:
-        0x00 0x00 revert            // NOT ENOUGH FUNDS
+        push0 push0 revert          // NOT ENOUGH FUNDS
 
     do_transfer:
         // Reduce deposit  // [balance, amount, slot]
@@ -84,13 +84,13 @@
         swap1 pop          // [amount]
 
         // Transfer amount to caller
-        0x00               // [0, amount]
+        push0              // [0, amount]
         dup1               // [0, 0, amount]
         dup1               // [0, 0, 0, amount]
         dup1               // [0, 0, 0, 0, amount]
         swap4              // [amount, 0, 0, 0, 0]
         caller             // [address, amount, 0 ,0, 0, 0]
-        0x00               // [0, address, amount, 0, 0, 0, 0] 
+        push0              // [0, address, amount, 0, 0, 0, 0] 
         call               // [] (gas, address, amount, argOffset, argSize, retOffset, retSize)
 }
 
