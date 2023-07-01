@@ -25,6 +25,23 @@
     32 * (len-1) + 4: u_n
     */
 
+ #define macro TRANSFER(halt) = takes(3) returns(3) {
+    //stack input: [address, dx, share]
+    push0                 // [0, address, dx, share]
+    dup1                  // [0, 0, address, dx, share]
+    dup1                  // [0, 0, 0, address, dx, share]
+    dup1                  // [0, 0, 0, 0, address, dx, share]
+    dup7                  // [share, 0, 0, 0, 0, address, dx, share]
+    dup6                  // [address, share, 0, 0, 0, 0, address, dx, share]
+    gas                   // [gas, address, share, 0, 0, 0, 0, address, dx, share]
+    call                  // [address, dx, share] (gas, address, amount, argOffset, argSize, retOffset, retSize)
+                          // [callStatus address, dx, share]
+    iszero <halt> jumpi   // [address, dx, share]
+
+    /* LINE_BREAK(0xa0, 0xc0) */
+    /* LOG_STACK_4(0xa0) */
+ }
+
  #define macro MAIN() = takes(0) returns(0) {
     // Get the fn sig from calldata
     push0 calldataload 0xE0 shr  // [fnSig]
@@ -58,23 +75,11 @@
         0x01 swap1 sub           // [dx-1, &address, share]
         swap1 mload              // [address, dx, share]
 
-        // transfer
-        push0              // [0, address, dx, share]
-        dup1               // [0, 0, address, dx, share]
-        dup1               // [0, 0, 0, address, dx, share]
-        dup1               // [0, 0, 0, 0, address, dx, share]
-        dup7               // [share, 0, 0, 0, 0, address, dx, share]
-        dup6               // [address, share, 0, 0, 0, 0, address, dx, share]
-        gas                // [gas, address, share, 0, 0, 0, 0, address, dx, share]
-        call               // [address, dx, share] (gas, address, amount, argOffset, argSize, retOffset, retSize)
+        TRANSFER(halt)           // [address, dx, share]
 
-        /* LINE_BREAK(0xa0, 0xc0) */
-        /* LOG_STACK_4(0xa0) */
-
-        iszero halt jumpi   // [address, dx, share] (gas, address, amount, argOffset, argSize, retOffset, retSize)
-        pop                 // [dx, share]
+        pop                      // [dx, share]
         while jump
 
-    done:                   // [...]
-        push0 push0 return  // []
+    done:                        // [...]
+        push0 push0 return       // []
  }
