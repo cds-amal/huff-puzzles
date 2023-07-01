@@ -1,0 +1,22 @@
+Add1               72     62
+BasicBank         258    240
+CallValue          18     14
+CalldataLength     18     14
+Create            144    130
+Distributor       178    162
+Donations         110    100
+Emitter           132    122
+FooBar            108     94
+Keccak             36     26
+MaxOfArray        180    168
+Multiply          132    118
+MyEtherBalance     20     16
+NonPayable         36     28
+Return1            20     16
+RevertCustom       82     78
+RevertString       56     52
+SendEther          68     64
+SimpleStore       112     94
+SimulateArray     566    534
+SumArray          144    130
+
