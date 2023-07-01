@@ -27,71 +27,91 @@
     sha3                // [slot]
 }
 
-#define macro MAIN() = takes(0) returns(0) {
+#define macro DISPATCH(deposit, balance_of, withdraw) = takes(0) returns(0) {
     // Get the fn sig from calldata
-    push0 calldataload 0xE0 shr  // [fnSig]
-    dup1 __FUNC_SIG(balanceOf)   // [sel(balanceOf), fnSig]
-    eq balance_of jumpi          // [fnSig]
+    push0 calldataload 0xE0 shr
+    dup1 __FUNC_SIG(balanceOf) eq <balance_of> jumpi  // [fnSig]
+    __FUNC_SIG(withdraw) eq <withdraw> jumpi          // []
 
-    __FUNC_SIG(withdraw)         // [sel(withdraw), fnSig]
-    eq withdraw jumpi            // []
+    // fallback into deposit
+    <deposit> jump
+}
 
-    // fallback function is deposit
-    caller                          // [caller]
-    GET_ADDRESS_SLOT(DEPOSIT)       // [slot]
-    dup1 sload                      // [current_value, slot]
-    callvalue add                   // [new_value, slot]
-    swap1 sstore                    // []
-    push0 push0 return              // []
+#define macro DEPOSIT() = takes(0) returns(0) {
+    caller                     // [caller]
+    GET_ADDRESS_SLOT(DEPOSIT)  // [slot]
+    dup1 sload                 // [current_value, slot]
+    callvalue add              // [new_value, slot]
+    swap1 sstore               // []
+    push0 push0 return         // []
+}
+
+#define macro BALANCE_OF() = takes(0) returns(0) {
+    0x04 calldataload           // [address]
+    GET_ADDRESS_SLOT(DEPOSIT)   // [slot]
+    sload                       // [balance]
+    push0 mstore                // []
+    0x20 push0 return
+}
+
+#define macro WITHDRAW() = takes(0) returns(0) {
+    caller                      // [caller]
+    GET_ADDRESS_SLOT(DEPOSIT)   // [slot]
+    dup1                        // [slot, slot]
+    0x04 calldataload           // [amount, slot, slot]
+    dup1                        // [amount, amount, slot, slot]
+    swap2                       // [slot, amount, amount, slot]
+    sload                       // [balance, amount, amount, slot]
+    dup1 iszero no_funds jumpi  // [balance, amount, amount, slot]
+    swap1                       // [amount , balance, amount, slot]
+    dup2                        // [balance, amount, balance, amount, slot]
+
+    swap1                       // [amount, balance, balance, amount, slot]
+    gt no_funds jumpi           // [balance, amount, slot]
+
+    // @invariant: amount <= balance 
+    TRANSFER()
+
+    no_funds:
+        push0 push0 revert      // NOT ENOUGH FUNDS
+}
+
+#define macro TRANSFER() = takes(0) returns(0) {
+    // Reduce deposit  // [balance, amount, slot]
+    dup2               // [amount, balance, amount, slot]
+    swap1              // [balance, amount, amount, slot]
+    // @invariant: amount <= balance
+    sub                // [reducedBalance, amount, slot]
+
+    // Update deposit in storage
+    dup3               // [slot, reducedBalance, amount, slot]
+    sstore             // [amount, slot]
+    swap1 pop          // [amount]
+
+    // Transfer amount to caller
+    push0              // [0, amount]
+    dup1               // [0, 0, amount]
+    dup1               // [0, 0, 0, amount]
+    dup1               // [0, 0, 0, 0, amount]
+    swap4              // [amount, 0, 0, 0, 0]
+    caller             // [address, amount, 0 ,0, 0, 0]
+    push0              // [0, address, amount, 0, 0, 0, 0] 
+    call               // [] (gas, address, amount, argOffset, argSize, retOffset, retSize)
+    stop
+}
+
+#define macro MAIN() = takes(0) returns(0) {
+
+    DISPATCH(deposit, balance_of, withdraw)
+
+    deposit:
+        DEPOSIT()
 
     balance_of:
-        0x04 calldataload           // [address]
-        GET_ADDRESS_SLOT(DEPOSIT)   // [slot]
-        sload                       // [balance]
-        push0 mstore                // []
-        0x20 push0 return
+        BALANCE_OF()
 
     withdraw:
-        caller                      // [caller]
-        GET_ADDRESS_SLOT(DEPOSIT)   // [slot]
-        dup1                        // [slot, slot]
-        0x04 calldataload           // [amount, slot, slot]
-        dup1                        // [amount, amount, slot, slot]
-        swap2                       // [slot, amount, amount, slot]
-        sload                       // [balance, amount, amount, slot]
-        dup1 iszero halt jumpi      // [balance, amount, amount, slot]
-        swap1                       // [amount , balance, amount, slot]
-        dup2                        // [balance, amount, balance, amount, slot]
-
-        // balance >= amount
-        gt do_transfer jumpi        // [balance, amount, slot]
-        dup1 dup1
-        eq do_transfer jumpi
-
-    halt:
-        push0 push0 revert          // NOT ENOUGH FUNDS
-
-    do_transfer:
-        // Reduce deposit  // [balance, amount, slot]
-        dup2               // [amount, balance, amount, slot]
-        swap1              // [balance, amount, amount, slot]
-        // @invariant: balance >= amount
-        sub                // [reducedBalance, amount, slot]
-
-        // Update deposit in storage
-        dup3               // [slot, reducedBalance, amount, slot]
-        sstore             // [amount, slot]
-        swap1 pop          // [amount]
-
-        // Transfer amount to caller
-        push0              // [0, amount]
-        dup1               // [0, 0, amount]
-        dup1               // [0, 0, 0, amount]
-        dup1               // [0, 0, 0, 0, amount]
-        swap4              // [amount, 0, 0, 0, 0]
-        caller             // [address, amount, 0 ,0, 0, 0]
-        push0              // [0, address, amount, 0, 0, 0, 0] 
-        call               // [] (gas, address, amount, argOffset, argSize, retOffset, retSize)
+        WITHDRAW()
 }
 
 /*
