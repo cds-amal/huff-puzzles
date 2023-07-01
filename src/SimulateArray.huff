@@ -26,34 +26,42 @@
 
 #define constant SIZE = FREE_STORAGE_POINTER()
 
-#define macro MAIN() = takes(0) returns(0) {
+#define macro THROW_OOB() = takes(0) returns(0) {
+    __ERROR(OutOfBounds) // [error_selector, message_length, message]
+    push0 mstore         // [message_length, message]
+    0x04 push0 revert
+}
+
+#define macro DISPATCH(fn_pushh, fn_popp, fn_read, fn_length, fn_write) = takes(0) returns(0) {
     // Get the fn sig from calldata
     push0 calldataload 0xE0 shr   // [callSig]
-    dup1 __FUNC_SIG(pushh) eq fn_pushh jumpi   // [callSig]
-    dup1 __FUNC_SIG(popp) eq fn_popp jumpi     // [callSig]
-    dup1 __FUNC_SIG(read) eq fn_read jumpi     // [callSig]
-    dup1 __FUNC_SIG(length) eq fn_length jumpi // [callSig]
-    __FUNC_SIG(write) eq fn_write jumpi        // [callSig]
+    dup1 __FUNC_SIG(pushh)  eq <fn_pushh>  jumpi 
+    dup1 __FUNC_SIG(popp)   eq <fn_popp>   jumpi 
+    dup1 __FUNC_SIG(read)   eq <fn_read>   jumpi 
+    dup1 __FUNC_SIG(length) eq <fn_length> jumpi 
+    __FUNC_SIG(write)       eq <fn_write>  jumpi 
 
-    halt:
-        push0 push0 revert
+    push0 push0 revert
+}
 
-    fn_pushh:
-        // update length
-        [SIZE] sload       // [len]
-        0x01 add dup1      // [len+1, len+1]
-        [SIZE] sstore      // [len+1]
+#define macro PUSH() = takes(0) returns(0) {
+    // update length
+    [SIZE] sload       // [len]
+    0x01 add dup1      // [len+1, len+1]
+    [SIZE] sstore      // [len+1]
 
-        // add new item
-        0x04 calldataload  // [n, len+1]
-        swap1 [SIZE] add   // [&(len+1), n]
-        sstore             // []
-        push0 push0 return // []
+    // add new item
+    0x04 calldataload  // [n, len+1]
+    swap1 [SIZE] add   // [&(len+1), n]
+    sstore             // []
+    stop
+}
 
-    fn_popp:
-        [SIZE] sload       // [len]
-        // check length > 0
-        dup1 iszero zero_array jumpi  // [len]
+
+#define macro POP() = takes(0) returns(0) {
+    [SIZE] sload       // [len]
+    // check length > 0
+    dup1 iszero zero_array jumpi  // [len]
 
     popp:                  // [len]
         dup1               // [len, len]
@@ -69,55 +77,79 @@
         push0 mstore       // []
         0x20 push0 return  // []
 
-   zero_array:
+    zero_array:
         __ERROR(ZeroArray)       // [error_selector, message_length, message]
         push0 mstore             // [message_length, message]
         0x04 push0 revert
+}
 
-    fn_read:
-        [SIZE] sload       // [len]
-        dup1               // [len, len] 
+#define macro READ(oob) = takes(0) returns(0) {
+    [SIZE] sload       // [len]
+    dup1               // [len, len] 
 
-        // len == 0
-        iszero oob jumpi   // [len]
+    // len == 0
+    iszero oob jumpi   // [len]
 
-        0x04 calldataload  // [dx, len]
-        dup1               // [dx, dx, len]
-        dup3               // [len, dx, dx, len]
-        // len > dx is InBounds
-        gt read jumpi      // [dx, len]
+    0x04 calldataload  // [dx, len]
+    dup1               // [dx, dx, len]
+    dup3               // [len, dx, dx, len]
+    // len > dx is InBounds
+    gt read jumpi      // [dx, len]
 
-    oob:
-        __ERROR(OutOfBounds)     // [error_selector, message_length, message]
-        push0 mstore             // [message_length, message]
-        0x04 push0 revert
+    // Throw OutOfBounds
+    <oob> jump
 
     read:                   // [dx, len]
         0x01 add sload      // [dx+1, len] // since SIZE is 0x00
         push0 mstore        // []
         0x20 push0 return   // []
+}
 
-    fn_length:
-        [SIZE] sload        // [len]
-        push0 mstore        // []
-        0x20 push0 return   // []
+#define macro LENGTH() = takes(0) returns(0) {
+    [SIZE] sload        // [len]
+    push0 mstore        // []
+    0x20 push0 return   // []
+}
 
-    fn_write:
-        0x24 calldataload   // [value]
-        0x04 calldataload   // [dx, value]
-        [SIZE] sload        // [len, dx, value]
+#define macro WRITE(oob) = takes(0) returns(0) {
+    0x24 calldataload   // [value]
+    0x04 calldataload   // [dx, value]
+    [SIZE] sload        // [len, dx, value]
 
-        // dx >= len is OutOfBounds
-        dup2                // [dx, len, dx, value]
-        lt write jumpi      // [dx, value]
+    // dx >= len is OutOfBounds
+    dup2                // [dx, len, dx, value]
+    lt write jumpi      // [dx, value]
 
-        // Goto out of bounds
-        oob jump
+    // Throw OutOfBounds
+    <oob> jump
 
     write:
         0x01 add            // [slot, value]
         sstore              // []
         stop
+}
+
+#define macro MAIN() = takes(0) returns(0) {
+
+    DISPATCH(fn_pushh, fn_popp, fn_read, fn_length, fn_write) 
+
+    fn_pushh:
+        PUSH()
+
+    fn_popp:
+        POP()
+
+    fn_length:
+        LENGTH()
+
+    fn_read:
+        READ(oob)
+
+    fn_write:
+        WRITE(oob)
+
+    oob:
+        THROW_OOB()
 }
 
 /*
