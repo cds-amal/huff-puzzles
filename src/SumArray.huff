@@ -12,14 +12,32 @@
 #define function sumArray(uint256[]) payable returns(uint256)
 
 
+#define macro READ_NEXT_AND_DEC_DX() = takes(0) returns(0) {
+    // input stack: [dx, sum]
+    // Load next item
+    dup1 0x20 mul           // [32*dx, dx, sum]
+    swap1                   // [dx, 32*dx, sum]
+    0x01 swap1 sub          // [dx = dx-1, 32*dx, sum]
+    swap1 mload             // [n, dx, sum]
+}
+
+
+#define macro UPDATE_SUM() = takes(0) returns(0) {
+    // input stack:   [n, dx, sum]
+    dup3           // [sum, n, dx, sum]
+    add            // [sum+n, dx, sum]
+    swap2          // [sum, dx, sum+n]
+    pop            // [dx, sum+n]
+}
+
 #define macro MAIN() = takes(0) returns(0) {
 
     // Get the fn sig from calldata
     0x00 calldataload 0xE0 shr   // [fn_sig (calldata @ 0x00 >> 0xE0)]
 
-    // Check if fn sig mathes `sumArray`
+    // Check if fn sig matches `sumArray`
     __FUNC_SIG(sumArray)     // [sel(sumArray), fn_sig]
-    eq start jumpi      // []
+    eq start jumpi           // []
 
     // Revert if wrong fn
     push0 push0 revert
@@ -46,15 +64,10 @@
     while: // dx != 0 
         dup1 iszero done jumpi  // [dx, sum]
 
-        // Load next item
-        dup1 0x20 mul           // [32*dx, dx, sum]
-        swap1                   // [dx, 32*dx, sum]
+        READ_NEXT_AND_DEC_DX()  // [n, dx = dx - 1, sum]
 
-        0x01 swap1 sub          // [--dx, 32*dx, sum]
-        swap1 mload             // [n, dx, sum]
+        UPDATE_SUM()            // [dx, sum = sum + n]
 
-        dup3 add swap2          // [n, dx, sum+n]
-        pop                     // [dx, sum+n]
         while jump
 
     done:                       // [dx, sum]
@@ -62,6 +75,7 @@
         push0 mstore            // []
         0x20 push0 return       // []
 }
+
 /*
 calldata: 0x1e2aea0600000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001
 
