@@ -15,16 +15,17 @@
 #define constant DEPOSIT = FREE_STORAGE_POINTER()
 
 /// @notice generate storage slot for a balance[address] hashmap.
-#define macro GET_ADDRESS_SLOT(ptr) = takes(0) returns (1) {
+#define macro GET_ADDRESS_SLOT(ptr) = takes(1) returns (1) {
     // Input stack: [caller]
     // Load the data into memory and hash it, while preserving the memory location.
-    <ptr>               // [ptr, caller]
-    mstore              // []
+                        // put slot value in 1st word
+    <ptr> push0 mstore  // [caller]
+
+                        // and caller in 2nd word
+    0x20 mstore         // [] 
 
     // Hash the data, generating a key.
-    0x20                // [32]
-    <ptr>               // [ptr, 32]
-    sha3                // [slot]
+    0x40 push0 sha3     // [slot]
 }
 
 #define macro DISPATCH(deposit, balance_of, withdraw) = takes(0) returns(0) {
