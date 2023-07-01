@@ -44,7 +44,7 @@
     dup1 sload                 // [current_value, slot]
     callvalue add              // [new_value, slot]
     swap1 sstore               // []
-    push0 push0 return         // []
+    stop
 }
 
 #define macro BALANCE_OF() = takes(0) returns(0) {
@@ -63,24 +63,22 @@
     dup1                        // [amount, amount, slot, slot]
     swap2                       // [slot, amount, amount, slot]
     sload                       // [balance, amount, amount, slot]
+
+    // err if balance == 0
     dup1 iszero no_funds jumpi  // [balance, amount, amount, slot]
+
+    // or amount > balance
     swap1                       // [amount , balance, amount, slot]
     dup2                        // [balance, amount, balance, amount, slot]
-
     swap1                       // [amount, balance, balance, amount, slot]
     gt no_funds jumpi           // [balance, amount, slot]
 
-    // @invariant: amount <= balance 
-    TRANSFER()
+    // otherwise:
 
-    no_funds:
-        push0 push0 revert      // NOT ENOUGH FUNDS
-}
-
-#define macro TRANSFER() = takes(0) returns(0) {
     // Reduce deposit  // [balance, amount, slot]
     dup2               // [amount, balance, amount, slot]
     swap1              // [balance, amount, amount, slot]
+
     // @invariant: amount <= balance
     sub                // [reducedBalance, amount, slot]
 
@@ -89,7 +87,15 @@
     sstore             // [amount, slot]
     swap1 pop          // [amount]
 
+    TRANSFER()         // [amount]
+
+    no_funds:
+        push0 push0 revert      // NOT ENOUGH FUNDS
+}
+
+#define macro TRANSFER() = takes(0) returns(0) {
     // Transfer amount to caller
+    // input stack:    // [amount]
     push0              // [0, amount]
     dup1               // [0, 0, amount]
     dup1               // [0, 0, 0, amount]
@@ -98,6 +104,9 @@
     caller             // [address, amount, 0 ,0, 0, 0]
     push0              // [0, address, amount, 0, 0, 0, 0] 
     call               // [] (gas, address, amount, argOffset, argSize, retOffset, retSize)
+
+    // Stop here as there's no need to return anything for the calling withdraw
+    // function
     stop
 }
 
