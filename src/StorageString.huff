@@ -1,0 +1,173 @@
+/** 
+ *  Storage string HUFF EXERCISE
+ *
+ * In this puzzle, the task is to simulate an array in Huff using the "exact"
+ * storage pattern as solidity. Expected functions can; 
+ *      - sets string
+ *      - reads string
+ *
+ *  NOTICE: The contract should revert when an unrecognized function is called
+ */
+
+#define function getValue() view returns (string)
+#define function setValue(string memory) nonpayable returns () 
+
+#define constant SIZE = FREE_STORAGE_POINTER()
+
+
+#define macro DISPATCH(fn_get, fn_set) = takes(0) returns(0) {
+    // Get the fn sig from calldata
+    push0 calldataload 0xE0 shr   // [callSig]
+    dup1 __FUNC_SIG(getValue)  eq <fn_get>  jumpi 
+    __FUNC_SIG(setValue)       eq <fn_set>  jumpi 
+
+    push0 push0 revert
+}
+
+/*
+#define macro WRITE(oob) = takes(0) returns(0) {
+    0x24 calldataload   // [value]
+    0x04 calldataload   // [dx, value]
+    [SIZE] sload        // [len, dx, value]
+
+    // dx >= len is OutOfBounds
+    dup2                // [dx, len, dx, value]
+    lt write jumpi      // [dx, value]
+
+    // Throw OutOfBounds
+    <oob> jump
+
+    write:
+        0x01 add            // [slot, value]
+        sstore              // []
+        stop
+}
+*/
+
+#define macro IS_ODD() = takes(1) returns(1) {
+    // input [n]
+    // output [bool]
+    0x01 and                // [bool]
+}
+
+#define macro RETURN_1() = takes(0) returns(0) {
+    // input [head]
+    dup1                    // [head, head]
+    0xff and                // [2*len, head]
+    0x1 shr                 // [len, head]
+
+    0x20 0x00 mstore        // [len, head]
+    0x20 mstore             // [head]
+    dup1                    // [head, head]
+    0x1f byte               // [byte, head]
+    xor                     // [head ^ byte]
+    0x40 mstore             // []
+    0x60 0x00 return
+
+}
+
+#define macro GET() = takes(0) returns(0) {
+    // get head of string storage
+    0x00 sload               // [head]
+    dup1                     // [head, head]
+    IS_ODD() odd jumpi       // [head]
+
+    RETURN_1()
+
+    odd:
+        RETURN_1()
+}
+
+#define macro StoreOneWord() = takes(1) returns(0) {
+    // get head of string storage
+    0x01 shl                 // [2*size]
+    0x44 calldataload        // [str, 2*size]
+    or                       // [head]
+    0x00 sstore              // []
+    stop
+}
+
+#define macro StoreNWords() = takes(1) returns(0) {
+    // get head of string storage
+    0x20                     // [0x20, size]
+    dup2                     // [size, 0x20, size]
+    div                      // [quotient, size]
+    dup2                     // [size, quotient, size]
+    0x20                     // [0x20, size, quotient, size]
+    mod                      // [remainder, quotient, size]
+    iszero save_loop jumpi   // [quotient, size]
+    0x01 add                 // [++quotient, size]
+
+
+    save_loop:               // [slots=quotient, size]
+        swap1                // [size, slots]
+        0x01 shl             // [encodedLen = 2*size, slots]
+        0x01 add             // [++encodedLen, slots]
+        0x00 sstore          // [slots]
+
+        0x00 0x00 mstore     // [slots]
+        0x20 0x00 sha3       // [optr, slots]
+        0x44                 // [iptr=0x44, optr, slots]
+
+        do: 
+            // read n 
+            dup1            // [iptr, iptr, optr, slots]
+            calldataload    // [w, iptr, optr, slots]
+            dup3            // [optr, w, iptr, optr, slots]
+            sstore          // [iptr, optr, slots]
+
+            0x20 add       // [++iptr, optr, slots]
+            swap1          // [optr, ++iptr, slots]
+            0x01 add       // [++optr, iptr, slots]
+            swap1          // [iptr, optr, slots]
+
+            0x01          // [0x01, iptr, optr, slots]
+            dup4          // [slots, 0x01, iptr, optr, slots]
+            sub           // [--slots, iptr, optr, slots]
+            swap3         // [slots, iptr, optr, slots-1]
+
+// TODO: test this logic with 
+// s31, s32, s63, s64, s65
+            0x01 gt       // [b, iptr, optr, slots-1]
+            iszero do jumpi   // [iptr, optr, slots-1]
+//      while slots >= 1
+            stop
+}
+
+#define macro SET() = takes(0) returns(0) {
+    // get head of string storage
+    0x24 calldataload        // [size]
+    dup1                     // [size, size]
+
+    // 32 > size
+    0x32 gt set_1w jumpi     // [size]
+
+    StoreNWords()
+
+    set_1w:
+        StoreOneWord()
+}
+
+
+#define macro MAIN() = takes(0) returns(0) {
+    DISPATCH(fn_get, fn_set) 
+
+    fn_get:
+        GET()
+
+    fn_set:
+        SET()
+
+}
+
+/*
+setValue(Hello)
+0x93a093520000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000548656c6c6f000000000000000000000000000000000000000000000000000000
+
+getValue()
+0x20965255
+
+setValue(string) "Hello I love you let me get in your game. Hellbent for leather"
+0x93a093520000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003e48656c6c6f2049206c6f766520796f75206c6574206d652067657420696e20796f75722067616d652e2048656c6c62656e7420666f72206c6561746865720000
+
+*/
