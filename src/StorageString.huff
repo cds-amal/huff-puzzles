@@ -59,14 +59,14 @@
     iszero read_loop jumpi    // [quotient, size]
     0x01 add                  // [++quotient, size]
 
-    dup1                      // [slots, slots, size]
-    0x20 mul                  // [32*slots, slots, size]
-    0x40 add                  // [totalsize, slots, size]
-    swap2                     // [size, slots, totalsize]
-    swap1                     // [slots, size, totalsize]
+    read_loop:                // [slots, size]
+        dup1                  // [slots, slots, size]
+        0x20 mul              // [32*slots, slots, size]
+        0x40 add              // [totalsize, slots, size]
+        swap2                 // [size, slots, totalsize]
+        swap1                 // [slots, size, totalsize]
 
 
-    read_loop:                // [slots, size, totalsize]
         0x20 0x80 mstore      // [slots, size, totalsize]
         swap1                 // [size, slots, totalsize]
         0xa0 mstore           // [slots, totalsize]
@@ -169,13 +169,19 @@
     0x24 calldataload        // [size]
     dup1                     // [size, size]
 
-    // 32 > size
-    0x32 gt set_1w jumpi     // [size]
+    iszero oob jumpi         // [size]
+    dup1                     // [size, size]
+
+    // 31 > size
+    0x1f gt set_1w jumpi     // [size]
 
     StoreNWords()
 
     set_1w:
         StoreOneWord()
+
+    oob:
+        0x00 0x00 revert
 }
 
 
@@ -183,6 +189,7 @@
     DISPATCH(fn_get, fn_set) 
 
     fn_get:
+        pop
         GET()
 
     fn_set:
