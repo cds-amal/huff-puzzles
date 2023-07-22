@@ -24,26 +24,6 @@
     push0 push0 revert
 }
 
-/*
-#define macro WRITE(oob) = takes(0) returns(0) {
-    0x24 calldataload   // [value]
-    0x04 calldataload   // [dx, value]
-    [SIZE] sload        // [len, dx, value]
-
-    // dx >= len is OutOfBounds
-    dup2                // [dx, len, dx, value]
-    lt write jumpi      // [dx, value]
-
-    // Throw OutOfBounds
-    <oob> jump
-
-    write:
-        0x01 add            // [slot, value]
-        sstore              // []
-        stop
-}
-*/
-
 #define macro IS_ODD() = takes(1) returns(1) {
     // input [n]
     // output [bool]
@@ -63,7 +43,57 @@
     xor                     // [head ^ byte]
     0x40 mstore             // []
     0x60 0x00 return
+}
 
+#define macro RETURN_N() = takes(0) returns(0) {
+    // input [head]
+    // get head of string storage
+    0x1 shr                   // [size//2]
+    0x20                      // [0x20, size]
+    dup2                      // [size, 0x20, size]
+    div                       // [quotient, size]
+    dup2                      // [size, quotient, size]
+    0x20                      // [0x20, size, quotient, size]
+    swap1                     // [size, 0x20, quotient, size]
+    mod                       // [remainder, quotient, size]
+    iszero read_loop jumpi    // [quotient, size]
+    0x01 add                  // [++quotient, size]
+
+    dup1                      // [slots, slots, size]
+    0x20 mul                  // [32*slots, slots, size]
+    0x40 add                  // [totalsize, slots, size]
+    swap2                     // [size, slots, totalsize]
+    swap1                     // [slots, size, totalsize]
+
+
+    read_loop:                // [slots, size, totalsize]
+        0x20 0x80 mstore      // [slots, size, totalsize]
+        swap1                 // [size, slots, totalsize]
+        0xa0 mstore           // [slots, totalsize]
+        0xc0                  // [optr, slots, totalsize]
+
+        0x00 0x00 mstore      // [optr, slots, totalsize]
+        0x20 0x00 sha3        // [iptr, optr, slots, totalsize]
+        do:
+            dup1              // [iptr, iptr, optr, slots, totalsize]
+            sload             // [w, iptr, optr, slots, totalsize]
+            dup3              // [optr, w, iptr, optr, slots, totalsize]
+            mstore            // [iptr, optr, slots, totalsize]
+            0x01 add          // [++iptr, optr, slots, totalsize]
+            swap1             // [optr, ++iptr, slots, totalsize]
+            0x20 add          // [++optr, iptr, slots, totalsize]
+            swap2             // [slots, iptr, optr, totalsize]    
+            0x01 swap1        // [slots, 1, iptr, optr, totalsize]
+            sub               // [--slots, iptr, optr, totalsize]
+            dup1              // [slots, slots, iptr, optr, totalsize]
+            iszero fin jumpi  // [slots, iptr, optr, totalsize]
+            swap2             // [optr, iptr, slots, totalsize]
+            swap1             // [iptr, optr, slots, totalsize]
+            do jump
+
+        fin:                  // [slots, iptr, optr, totalsize]
+            swap3             // [totalsize, iptr, optr, slots]
+            0x80 return
 }
 
 #define macro GET() = takes(0) returns(0) {
@@ -72,10 +102,10 @@
     dup1                     // [head, head]
     IS_ODD() odd jumpi       // [head]
 
-    RETURN_1()
+    RETURN_1()               // [head]
 
     odd:
-        RETURN_1()
+        RETURN_N()           // [head]
 }
 
 #define macro StoreOneWord() = takes(1) returns(0) {
