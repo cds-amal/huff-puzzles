@@ -16,7 +16,7 @@
  *  (all the time) with the string error message `Only Huff`
 */
 
-// Only Huff
+//                        O.n.l.y. .H.u.f.f.
 #define constant HUFF = 0x4f6e6c792048756666
 #define error Error(string)
  
